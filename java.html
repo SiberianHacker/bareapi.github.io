@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Java – Bare API</title>
+        <link rel="stylesheet" href="assets/style.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        <script>
+            hljs.highlightAll();
+        </script>
+    </head>
+    <body>
+        <div class="wrapper">
+            <nav class="sidebar">
+                <h3 style="color:#f0f6fc; margin-bottom: 24px;">Bare API</h3>
+                <a href="index.html">Введение</a>
+                <a href="python.html">Python</a>
+                <a href="java.html" class="active">Java</a>
+                <a href="javascript.html">JavaScript</a>
+                <a href="versions.html">Версии API</a>
+                <a href="links.html">Полезные ссылки</a>
+            </nav>
+            <main class="content">
+                <h1>Java</h1>
+                <p>Java код для использования API, отправка капчи из файла или из буфера</p>
+                <pre>
+									<code class="language-java">import java.awt.image.BufferedImage;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Base64;
+import java.util.Scanner;
+
+import javax.imageio.ImageIO;
+
+public class CaptchaSolver {
+
+    private static final String API_KEY = "Ваш ключ Bare API";
+    private static final String SITE = "http://5.42.211.111/";
+    private static final int TIMEOUT = 10000;
+    private static final long GET_DELAY = 800;
+
+    public static String imageToBase64(String imagePath) throws IOException {
+        byte[] imageBytes = Files.readAllBytes(Paths.get(imagePath));
+        return Base64.getEncoder().encodeToString(imageBytes);
+    }
+    
+    public static String imageToBase64(BufferedImage image) throws IOException {
+	    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+	    ImageIO.write(image, "png", byteArrayOutputStream);
+	    return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
+    }
+    
+    public static String sendPost(String url, String params) throws IOException {
+        @SuppressWarnings("deprecation")
+		URL obj = new URL(url);
+        HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
+
+        connection.setRequestMethod("POST");
+        connection.setConnectTimeout(TIMEOUT);
+        connection.setReadTimeout(TIMEOUT);
+        connection.setDoOutput(true);
+
+        try (OutputStream os = connection.getOutputStream()) {
+            byte[] input = params.getBytes("UTF-8");
+            os.write(input, 0, input.length);
+        }
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
+        StringBuilder response = new StringBuilder();
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            response.append(line);
+        }
+
+        reader.close();
+        return response.toString();
+    }
+
+    public static String sendGet(String url) throws IOException {
+        @SuppressWarnings("deprecation")
+		URL obj = new URL(url);
+        HttpURLConnection connection = (HttpURLConnection) obj.openConnection();
+
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(TIMEOUT);
+        connection.setReadTimeout(TIMEOUT);
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"));
+
+        StringBuilder response = new StringBuilder();
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            response.append(line);
+        }
+
+        reader.close();
+        return response.toString();
+    }
+
+    public static String solveCaptcha(String filename) {
+        try {
+            String base64Image = imageToBase64(filename);
+            String postParams = "key=" + URLEncoder.encode(API_KEY, "UTF-8") + "&method=base64" + "&body=" + URLEncoder.encode(base64Image, "UTF-8");
+            String postResponse = sendPost(SITE + "in.php", postParams);
+            
+            if (!postResponse.startsWith("OK|")) {
+                System.out.println("Ошибка отправки капчи: " + postResponse);
+                return null;
+            }
+            String captchaId = postResponse.split("\\|")[1];
+            Thread.sleep(GET_DELAY);
+            String getUrl = SITE + "res.php?key=" + URLEncoder.encode(API_KEY, "UTF-8") + "&action=get&id=" + URLEncoder.encode(captchaId, "UTF-8");
+            String getResponse = sendGet(getUrl);
+
+            if (!getResponse.startsWith("OK|")) {
+                System.out.println("Капча ещё не решена: " + getResponse);
+                return null;
+            }
+
+            return getResponse.split("\\|")[1];
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    public static String solveCaptcha(BufferedImage image) {
+        try {
+            String base64Image = imageToBase64(image);
+            String postParams = "key=" + URLEncoder.encode(API_KEY, "UTF-8") + "&method=base64" + "&body=" + URLEncoder.encode(base64Image, "UTF-8");
+            String postResponse = sendPost(SITE + "in.php", postParams);
+            
+            if (!postResponse.startsWith("OK|")) {
+                System.out.println("Ошибка отправки капчи: " + postResponse);
+                return null;
+            }
+            String captchaId = postResponse.split("\\|")[1];
+            Thread.sleep(GET_DELAY);
+            String getUrl = SITE + "res.php?key=" + URLEncoder.encode(API_KEY, "UTF-8") + "&action=get&id=" + URLEncoder.encode(captchaId, "UTF-8");
+            String getResponse = sendGet(getUrl);
+
+            if (!getResponse.startsWith("OK|")) {
+                System.out.println("Капча ещё не решена: " + getResponse);
+                return null;
+            }
+
+            return getResponse.split("\\|")[1];
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Введите имя файла: ");
+        String captchaFile = scanner.nextLine();
+        // Решение капчи через отправку файла
+        String solvedCaptcha = solveCaptcha(captchaFile);
+        System.out.println("Решена капча: " + solvedCaptcha);
+
+        scanner.close();
+    }
+}</code>
+								</pre>
+                <hr>
+                <h1>Разбор кода</h1>
+                <h2>Импорты</h2>
+                <pre>
+										<code class="language-java">import java.awt.image.BufferedImage;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Base64;
+import java.util.Scanner;
+
+import javax.imageio.ImageIO;</code>
+									</pre>
+                <ul>
+                    <li>
+                        <b>BufferedImage</b> — работа с изображениями в памяти
+                    </li>
+                    <li>
+                        <b>java.io</b> — потоки ввода/вывода
+                    </li>
+                    <li>
+                        <b>HttpURLConnection</b> — для открытия коннекта к сайту
+                    </li>
+                    <li>
+                        <b>URL</b> — создание URL-адресов
+                    </li>
+                    <li>
+                        <b>URLEncoder</b> — кодирование параметров запроса
+                    </li>
+                    <li>
+                        <b>Files и Paths</b> — чтение файлов
+                    </li>
+                    <li>
+                        <b>Base64</b> — кодирование изображения в Base64
+                    </li>
+                    <li>
+                        <b>Scanner</b> — чтение ввода пользователя
+                    </li>
+                    <li>
+                        <b>ImageIO</b> — для работы с image
+                    </li>
+                </ul>
+                <h2>Конфигурация</h2>
+                <pre>
+										<code class="language-java">private static final String API_KEY = "Ваш ключ Bare API";
+private static final String SITE = "http://5.42.211.111/";
+private static final int TIMEOUT = 10000;
+private static final long GET_DELAY = 800;</code>
+									</pre>
+                <ul>
+                    <li>
+                        <b>API_KEY</b> — ключ доступа к Bare API
+                    </li>
+                    <li>
+                        <b>SITE</b> — адрес API сервера
+                    </li>
+                    <li>
+                        <b>TIMEOUT</b> — максимальное время ожидания HTTP-запроса
+                    </li>
+                    <li>
+                        <b>GET_DELAY</b> — задержка перед получением результата
+                    </li>
+                </ul>
+                <h2>Функция imageToBase64</h2>
+                <p> Преобразует PNG изображение в Base64 строку для отправки через API. </p>
+                <h3>Из файла</h3>
+                <pre>
+	<code class="language-java">public static String imageToBase64(String imagePath) throws IOException {
+    byte[] imageBytes = Files.readAllBytes(Paths.get(imagePath));
+    return Base64.getEncoder().encodeToString(imageBytes);
+}</code>
+									</pre>
+                <h3>Из BufferedImage</h3>
+                <pre>
+										<code class="language-java">public static String imageToBase64(BufferedImage image) throws IOException {
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    ImageIO.write(image, "png", byteArrayOutputStream);
+
+    return Base64.getEncoder().encodeToString(
+        byteArrayOutputStream.toByteArray()
+    );
+}</code>
+									</pre>
+                <h2>Функция sendPost</h2>
+                <p> Выполняет POST запрос к Bare API. </p>
+                <pre>
+										<code class="language-java">String postResponse = sendPost(
+    SITE + "in.php",
+    postParams
+);</code>
+									</pre>
+                <h3>Отправляемые параметры</h3>
+                <pre>
+										<code class="language-text">key=API_KEY
+method=base64
+body=BASE64_IMAGE</code>
+									</pre>
+                <h2>Функция sendGet</h2>
+                <p> Выполняет GET запрос для получения результата решения капчи. </p>
+                <pre>
+										<code class="language-java">String getResponse = sendGet(getUrl);</code>
+									</pre>
+                <h3>Параметры запроса</h3>
+                <pre>
+										<code class="language-text">key=API_KEY
+action=get
+id=CAPTCHA_ID</code>
+									</pre>
+                <h2>Функция solveCaptcha</h2>
+                <p> Основная функция решения капчи. </p>
+                <ol>
+                    <li>Преобразует изображение в Base64</li>
+                    <li>Отправляет изображение через <code>in.php</code>
+                    </li>
+                    <li>Получает ID капчи</li>
+                    <li>Ожидает <code>GET_DELAY</code>
+                    </li>
+                    <li>Получает результат через <code>res.php</code>
+                    </li>
+                </ol>
+                <h3>Решение через файл</h3>
+                <pre>
+										<code class="language-java">String solvedCaptcha = solveCaptcha("captcha.png");</code>
+									</pre>
+                <h3>Решение через BufferedImage</h3>
+                <pre>
+										<code class="language-java">BufferedImage image = ImageIO.read(new File("captcha.png"));
+
+String solvedCaptcha = solveCaptcha(image);</code>
+									</pre>
+                <h2>Примечания</h2>
+                <ul>
+                    <li>При сложных капчах можно увеличить <b>GET_DELAY</b>
+                    </li>
+                    <li>Пока поддерживаются только PNG формат</li>
+                </ul>
+            </main>
+        </div>
+    </body>
+</html>

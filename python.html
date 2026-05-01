@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Python – Bare API</title>
+        <link rel="stylesheet" href="assets/style.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        <script>
+            hljs.highlightAll();
+        </script>
+    </head>
+    <body>
+        <div class="wrapper">
+            <nav class="sidebar">
+                <h3 style="color:#f0f6fc; margin-bottom: 24px;">Bare API</h3>
+                <a href="index.html">Введение</a>
+                <a href="python.html" class="active">Python</a>
+                <a href="java.html">Java</a>
+                <a href="javascript.html">JavaScript</a>
+                <a href="versions.html">Версии API</a>
+                <a href="links.html">Полезные ссылки</a>
+            </nav>
+            <main class="content">
+                <h1>Python</h1>
+                <p>Пример отправки изображения на Bare API с использованием Python.</p>
+                <pre>
+									<code class="language-python">import requests
+from base64 import b64encode
+import time
+
+API_KEY = "Ключ Bare API"
+SITE = "http://5.42.211.111/"
+GET_DELAY = 0.8
+
+def image_to_base64(image_path):
+    with open(image_path, "rb") as image_file:
+        return b64encode(image_file.read()).decode('utf-8')
+
+def solve_captcha(filename):
+    try:
+        base64_image = image_to_base64(filename)
+
+        post_response = requests.post(
+            f"{SITE}in.php",
+            data={
+                "key": API_KEY,
+                "method": "base64",
+                "body": base64_image
+            },
+            timeout=10
+        )
+
+        if "OK|" not in post_response.text:
+            print("Ошибка отправки капчи:", post_response.text)
+            return None
+
+        captcha_id = post_response.text.split("|")[1]
+        time.sleep(GET_DELAY)
+
+        get_response = requests.get(
+            f"{SITE}res.php",
+            params={
+                "key": API_KEY,
+                "action": "get",
+                "id": captcha_id
+            },
+            timeout=10
+        )
+
+        if "OK|" not in get_response.text:
+            print("Капча ещё не решена:", get_response.text)
+            return None
+
+        return get_response.text.split("|")[1]
+
+    except Exception as e:
+        print("Ошибка:", str(e))
+        return None
+
+if __name__ == "__main__":
+    captcha = input("Введите имя файла: ")
+    solved_captcha = solve_captcha(captcha)
+    print(f"Решена капча: {solved_captcha}")</code>
+								</pre>
+                <hr>
+                <h1>Разбор кода</h1>
+                <h2>Импорты</h2>
+                <pre>
+										<code class="language-python">import requests
+from base64 import b64encode
+import time</code>
+									</pre>
+                <ul>
+                    <li>
+                        <b>requests</b> — HTTP-запросы к Bare API
+                    </li>
+                    <li>
+                        <b>base64</b> — преобразование изображения в base64
+                    </li>
+                    <li>
+                        <b>time</b> — задержка перед получением результата
+                    </li>
+                </ul>
+                <h2>Конфигурация</h2>
+                <pre>
+										<code class="language-python">API_KEY = "Ключ Bare API"
+SITE = "http://5.42.211.111/"
+GET_DELAY = 0.8</code>
+									</pre>
+                <ul>
+                    <li>
+                        <b>API_KEY</b> — ваш ключ доступа
+                    </li>
+                    <li>
+                        <b>SITE</b> — адрес Bare API
+                    </li>
+                    <li>
+                        <b>GET_DELAY</b> — время ожидания перед запросом результата
+                    </li>
+                </ul>
+                <h2>Функция image_to_base64</h2>
+                <p> Читает файл изображения и кодирует его в Base64, необходимый для передачи через API. </p>
+                <pre>
+										<code class="language-python">def image_to_base64(image_path):
+    with open(image_path, "rb") as image_file:
+        return b64encode(image_file.read()).decode('utf-8')</code>
+									</pre>
+                <h2>Функция solve_captcha</h2>
+                <p> Основная функция решения капчи: </p>
+                <ol>
+                    <li>Преобразует изображение в base64</li>
+                    <li>Отправляет капчу через <code>in.php</code>
+                    </li>
+                    <li>Получает ID капчи</li>
+                    <li>Запрашивает результат через <code>res.php</code>
+                    </li>
+                </ol>
+                <h3>Отправка изображения</h3>
+                <pre>
+										<code class="language-python">POST /in.php
+key=API_KEY
+method=base64
+body=BASE64_IMAGE</code>
+									</pre>
+                <h3>Получение результата</h3>
+                <pre>
+										<code class="language-python">GET /res.php
+key=API_KEY
+action=get
+id=CAPTCHA_ID</code>
+									</pre>
+                <h2>Возможные ответы API</h2>
+                <table>
+                    <tr>
+                        <th>Ответ</th>
+                        <th>Описание</th>
+                    </tr>
+                    <tr>
+                        <td>OK|94390ea8-815b-4e86-9659-7e1c758d42ae</td>
+                        <td>Капча принята, ID = 94390ea8-815b-4e86-9659-7e1c758d42ae</td>
+                    </tr>
+                    <tr>
+                        <td>OK|68143</td>
+                        <td>Капча решена, результат = 68143</td>
+                    </tr>
+                </table>
+                <h2>Примечания</h2>
+                <ul>
+                    <li>При сложных капчах можно увеличить <b>GET_DELAY</b>
+                    </li>
+                    <li>Пока поддерживаются только PNG формат</li>
+                </ul>
+            </main>
+        </div>
+    </body>
+</html>

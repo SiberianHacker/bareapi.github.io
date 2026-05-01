@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>JavaScript – Bare API</title>
+        <link rel="stylesheet" href="assets/style.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        <script>
+            hljs.highlightAll();
+        </script>
+    </head>
+    <body>
+        <div class="wrapper">
+            <nav class="sidebar">
+                <h3 style="color:#f0f6fc; margin-bottom: 24px;">Bare API</h3>
+                <a href="index.html">Введение</a>
+                <a href="python.html">Python</a>
+                <a href="java.html">Java</a>
+                <a href="javascript.html" class="active">JavaScript</a>
+                <a href="versions.html">Версии API</a>
+                <a href="links.html">Полезные ссылки</a>
+            </nav>
+            <main class="content">
+                <h1>JavaScript</h1>
+                <p>JS Код для использования Bare API</p>
+                <pre>
+									<code class="language-javascript">const fetch = require('node-fetch');
+const path = require('path');
+const fs = require('fs').promises;
+
+const API_KEY = "Ваш ключ Bare API";
+
+async function solve() {
+    const filePath = path.join(__dirname, 'captchas', 'captcha.png');
+    const solvedCaptcha = await sendAPI(filePath);
+    if (solvedCaptcha) {
+        console.log(`Решено ${solvedCaptcha}`);
+        captchaSolved = true;
+    } else {
+        console.warn('Не удалось решить капчу или ответ пуст');
+        captchaSolved = false;
+    }
+}
+
+async function sendAPI(filePath) {
+    const site = "http://5.42.211.111/";
+    try {
+        const exists = await fs.access(filePath).then(() => true).catch(() => false);
+        if (!exists) throw new Error('Файл капчи не найден!');
+        const base64Image = await fs.readFile(filePath).then(buf => buf.toString('base64'));
+
+        const postData = new URLSearchParams({
+            key: API_KEY,
+            method: "base64",
+            body: base64Image
+        });
+
+        const postResponse = await fetch(`${site}/in.php`, {
+            method: "POST",
+            body: postData
+        });
+
+        const postText = await postResponse.text();
+        console.log('Ответ in.php:', postText);
+        if (!postText.includes("|")) {
+            throw new Error(`Некорректный ответ сервера: ${postText}`);
+        }
+
+        const captcha_id = postText.split("|")[1].trim();
+        await new Promise(res => setTimeout(res, 500));
+
+        const getData = new URLSearchParams({
+            key: API_KEY,
+            action: "get",
+            id: captcha_id
+        });
+
+        const getResponse = await fetch(`${site}/res.php?${getData}`);
+        const getText = await getResponse.text();
+        console.log('Ответ res.php:', getText);
+
+        if (getText === "CAPCHA_NOT_READY") {
+            console.warn("Капча ещё не готова. Попробуйте позже.");
+            return null;
+        }
+
+        if (getText.startsWith("ERROR")) {
+            throw new Error(`Ошибка API: ${getText}`);
+        }
+
+        if (!getText.includes("|")) {
+            throw new Error(`Некорректный формат ответа: ${getText}`);
+        }
+
+        return getText.split("|")[1]?.trim() || null;
+
+    } catch (error) {
+        console.error('Ошибка в sendAPI:', error.message);
+        return null;
+    }
+}
+
+solve();</code>
+								</pre>
+                <hr>
+                <h1>Разбор кода</h1>
+                <h2>Импорты</h2>
+
+<pre>
+    <code class="language-javascript">const fetch = require('node-fetch');
+const path = require('path');
+const fs = require('fs').promises;</code>
+</pre>
+
+<ul>
+    <li><b>node-fetch</b> — HTTP-запросы к Bare API</li>
+    <li><b>path</b> — работа с путями файлов</li>
+    <li><b>fs.promises</b> — чтение файлов через Promise API</li>
+</ul>
+
+<h2>Установка зависимостей</h2>
+
+<p>
+    Перед запуском установите библиотеку <code>node-fetch</code>.
+</p>
+
+<pre>
+    <code class="language-bash">npm install node-fetch@2</code>
+</pre>
+
+<h2>Конфигурация</h2>
+
+<pre>
+    <code class="language-javascript">const API_KEY = "Ваш ключ Bare API";</code>
+</pre>
+
+<ul>
+    <li><b>API_KEY</b> — ключ доступа к Bare API</li>
+</ul>
+
+<h2>Функция solve</h2>
+
+<p>
+    Основная функция запуска решения капчи.
+</p>
+
+<pre>
+    <code class="language-javascript">async function solve() {
+    const filePath = path.join(__dirname, 'captchas', 'captcha.png');
+
+    const solvedCaptcha = await sendAPI(filePath);
+
+    if (solvedCaptcha) {
+        console.log(`Решено ${solvedCaptcha}`);
+    } else {
+        console.warn('Не удалось решить капчу или ответ пуст');
+    }
+}</code>
+</pre>
+
+<ul>
+    <li>Формирует путь до изображения</li>
+    <li>Вызывает функцию <code>sendAPI</code></li>
+    <li>Выводит результат решения капчи</li>
+</ul>
+
+<h2>Функция sendAPI</h2>
+
+<p>
+    Основная функция взаимодействия с Bare API.
+</p>
+
+<ol>
+    <li>Проверяет существование файла</li>
+    <li>Читает изображение</li>
+    <li>Конвертирует PNG в Base64</li>
+    <li>Отправляет капчу через <code>in.php</code></li>
+    <li>Получает ID капчи</li>
+    <li>Запрашивает результат через <code>res.php</code></li>
+</ol>
+
+<h2>Проверка файла</h2>
+
+<pre>
+    <code class="language-javascript">const exists = await fs.access(filePath)
+    .then(() => true)
+    .catch(() => false);
+
+if (!exists) {
+    throw new Error('Файл капчи не найден!');
+}</code>
+</pre>
+
+<h2>Преобразование изображения в Base64</h2>
+
+<pre>
+    <code class="language-javascript">const base64Image = await fs.readFile(filePath)
+    .then(buf => buf.toString('base64'));</code>
+</pre>
+
+<p>
+    Bare API принимает изображения в формате Base64.
+</p>
+
+<h2>Отправка капчи</h2>
+
+<pre>
+    <code class="language-javascript">const postData = new URLSearchParams({
+    key: API_KEY,
+    method: "base64",
+    body: base64Image
+});
+
+const postResponse = await fetch(`${site}/in.php`, {
+    method: "POST",
+    body: postData
+});</code>
+</pre>
+
+<h3>POST параметры</h3>
+
+<pre>
+    <code class="language-text">key=API_KEY
+method=base64
+body=BASE64_IMAGE</code>
+</pre>
+
+<h2>Получение результата</h2>
+
+<pre>
+    <code class="language-javascript">const getData = new URLSearchParams({
+    key: API_KEY,
+    action: "get",
+    id: captcha_id
+});
+
+const getResponse = await fetch(
+    `${site}/res.php?${getData}`
+);</code>
+</pre>
+
+<h3>GET параметры</h3>
+
+<pre>
+    <code class="language-text">key=API_KEY
+action=get
+id=CAPTCHA_ID</code>
+</pre>
+
+<h2>Задержка перед проверкой результата</h2>
+
+<pre>
+    <code class="language-javascript">await new Promise(res => setTimeout(res, 500));</code>
+</pre>
+
+<p>
+    API требует небольшую задержку перед получением результата.
+    При сложных капчах рекомендуется увеличить задержку до 1000–3000 мс.
+</p>
+
+<h2>Обработка ошибок</h2>
+
+<pre>
+    <code class="language-javascript">if (getText === "CAPCHA_NOT_READY") {
+    console.warn("Капча ещё не готова");
+    return null;
+}
+
+if (getText.startsWith("ERROR")) {
+    throw new Error(`Ошибка API: ${getText}`);
+}</code>
+</pre>
+
+<h2>Возможные ответы API</h2>
+
+<table>
+    <tr>
+        <th>Ответ</th>
+        <th>Описание</th>
+    </tr>
+
+    <tr>
+        <td>OK|94390ea8-815b-4e86-9659-7e1c758d42ae</td>
+        <td>Капча принята сервером</td>
+    </tr>
+
+    <tr>
+        <td>OK|68143</td>
+        <td>Капча успешно решена</td>
+    </tr>
+</table>
+
+<h2>Примечания</h2>
+
+<ul>
+    <li>Рекомендуется использовать Node.js 16+</li>
+    <li>Поддерживается только PNG формат</li>
+    <li>При медленном решении капчи увеличьте задержку перед запросом результата</li>
+    <li>Для Node.js 18+ можно использовать встроенный fetch без node-fetch</li>
+</ul>
+            </main>
+        </div>
+    </body>
+</html>
